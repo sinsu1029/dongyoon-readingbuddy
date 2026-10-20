@@ -1,4 +1,4 @@
-[reading-buddy (4).html](https://github.com/user-attachments/files/33703796/reading-buddy.4.html)
+[reading-buddy (5).html](https://github.com/user-attachments/files/33707277/reading-buddy.5.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -105,6 +105,8 @@
   .panel .no{flex:none;width:24px;font-size:11.5px;font-weight:800;color:#a5b4fc;padding-top:5px;letter-spacing:.04em}
   .panel .txt{flex:1;font-size:18px;line-height:1.65;color:#232342}
   .panel.speaking{border-left-color:var(--amber);background:var(--amber-soft);border-radius:0 12px 12px 0}
+  .passage.reading .panel{border-left-color:#c7d2fe}
+  .passage.reading .panel.speaking{border-left-color:var(--amber)}
   .tap-word{cursor:pointer;border-bottom:1px dotted #a5b4fc;border-radius:3px;transition:background .15s}
   .tap-word:hover,.tap-word.hit{background:#e0e7ff}
   .say{flex:none}
@@ -254,8 +256,8 @@
 
       <div class="card">
         <div class="card-head">
-          <h3 class="card-title"><span>🖼️</span> 이 페이지 지문 <span class="hint" style="margin:0">단어를 누르면 발음</span></h3>
-          <div class="row" style="gap:6px"><button id="rateBtn" class="btn sm ghost">🙂 보통</button><button id="readAllBtn" class="btn sm soft">🔊 전체 듣기</button></div>
+          <h3 class="card-title"><span>🖼️</span> 이 페이지 지문</h3>
+          <div class="row" style="gap:6px"><button id="rateBtn" class="btn sm ghost">🙂 보통</button><button id="readAllBtn" class="btn sm soft">🔊 페이지 읽기</button></div>
         </div>
         <div id="passage" class="passage"></div>
       </div>
@@ -660,9 +662,11 @@ function say(text, done, rate) {
 }
 function stopAll() {
   tok++; try { speechSynthesis.cancel(); } catch (e) {}
+  clearInterval(readTimer); readTimer = null;
   document.querySelectorAll('.panel.speaking, .wcard.speaking').forEach(e => e.classList.remove('speaking'));
-  $('readAllBtn').textContent = '🔊 전체 듣기';
-  $('readWordsBtn').textContent = '🔊 단어 듣기';
+  const pgs = $('passage'); if (pgs) pgs.classList.remove('reading');
+  if ($('readAllBtn')) $('readAllBtn').textContent = '🔊 페이지 읽기';
+  if ($('readWordsBtn')) $('readWordsBtn').textContent = '🔊 단어 듣기';
 }
 const speak = t => { stopAll(); say(t); };
 const speakLetters = w => { stopAll(); say(String(w).replace(/[^A-Za-z ]/g, '').split('').join(', '), null, .7); };
@@ -737,8 +741,7 @@ function renderToday() {
 
 function renderPassage(p) {
   $('passage').innerHTML = p.panels.map((x, i) =>
-    '<div class="panel" data-i="' + i + '"><div class="no">' + (x.n || i + 1) + '</div><div class="txt"></div>' +
-    '<button class="btn round soft say" data-i="' + i + '" aria-label="문장 듣기">🔊</button></div>').join('');
+    '<div class="panel" data-i="' + i + '"><div class="no">' + (x.n || i + 1) + '</div><div class="txt"></div></div>').join('');
   p.panels.forEach((x, i) => {
     const el = $('passage').querySelector('.panel[data-i="' + i + '"] .txt');
     el.textContent = x.text;
@@ -747,14 +750,9 @@ function renderPassage(p) {
 }
 $('passage').onclick = e => {
   const w = e.target.closest('.tap-word');
-  if (w) { w.classList.add('hit'); setTimeout(() => w.classList.remove('hit'), 600); return speak(w.textContent); }
-  const b = e.target.closest('.say');
-  if (!b) return;
-  const p = page(); if (!p) return;
-  const panel = b.closest('.panel'), i = +b.dataset.i;
-  stopAll();
-  panel.classList.add('speaking');
-  say(p.panels[i].text, () => panel.classList.remove('speaking'));
+  if (!w) return;
+  w.classList.add('hit'); setTimeout(() => w.classList.remove('hit'), 600);
+  speak(w.textContent);
 };
 $('pagePicker').onclick = e => {
   const b = e.target.closest('button[data-i]');
@@ -762,22 +760,53 @@ $('pagePicker').onclick = e => {
   S.active.page = +b.dataset.i; save(); stopAll(); renderToday();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
+let readTimer = null;
+const CHROME_DESKTOP = /Chrome/.test(navigator.userAgent) && !/Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+function passageText(p) {
+  return p.panels.map(x => {
+    const t = String(x.text || '').trim().replace(/\s+/g, ' ');
+    return /[.!?"'’”]$/.test(t) ? t : t + '.';
+  }).join(' ').trim();
+}
 $('readAllBtn').onclick = () => {
-  if ($('readAllBtn').textContent.indexOf('멈추기') > -1) return stopAll();
+  if ($('passage').classList.contains('reading')) return stopAll();
   const p = page(); if (!p || !p.panels.length) return;
   stopAll();
   const my = tok;
   $('readAllBtn').textContent = '⏹️ 멈추기';
-  let i = 0;
-  const next = () => {
+  $('passage').classList.add('reading');
+  if (!('speechSynthesis' in window)) return stopAll();
+
+  const full = passageText(p);
+  const starts = [];
+  let pos = 0;
+  p.panels.forEach(x => { starts.push(pos); pos += String(x.text || '').trim().length + 1; });
+
+  const u = new SpeechSynthesisUtterance(full);
+  u.lang = 'en-US';
+  if (voice) u.voice = voice;
+  u.rate = RATES[ri][0];
+  let last = -1;
+  u.onboundary = ev => {
     if (my !== tok) return;
+    const ci = ev.charIndex || 0;
+    let k = 0;
+    for (let i = 0; i < starts.length; i++) if (ci >= starts[i]) k = i;
+    if (k === last) return;
+    last = k;
     document.querySelectorAll('.panel.speaking').forEach(e => e.classList.remove('speaking'));
-    if (i >= p.panels.length) { stopAll(); return; }
-    const el = $('passage').querySelector('.panel[data-i="' + i + '"]');
+    const el = $('passage').querySelector('.panel[data-i="' + k + '"]');
     if (el) { el.classList.add('speaking'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-    say(p.panels[i++].text, () => setTimeout(next, 350));
   };
-  next();
+  u.onend = u.onerror = () => { if (my === tok) stopAll(); };
+  /* Chrome 데스크톱은 긴 문장을 15초쯤에서 끊는 버그가 있어 살짝 깨워준다 */
+  if (CHROME_DESKTOP) {
+    readTimer = setInterval(() => {
+      if (my !== tok) { clearInterval(readTimer); return; }
+      try { speechSynthesis.pause(); speechSynthesis.resume(); } catch (e) {}
+    }, 9000);
+  }
+  try { speechSynthesis.speak(u); } catch (e) { stopAll(); }
 };
 
 function renderPageWords(p) {
