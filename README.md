@@ -1,4 +1,4 @@
-[Uploading reading-buddy (3).html…]()
+[reading-buddy (4).html](https://github.com/user-attachments/files/33703796/reading-buddy.4.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -426,12 +426,17 @@
     <!-- AI 설정 -->
     <div id="pp-ai" class="pp hidden">
       <div class="card">
-        <h3 class="card-title" style="margin-bottom:8px"><span>🔑</span> Anthropic API</h3>
-        <p class="hint">키는 이 브라우저에만 저장되고 파일에는 들어가지 않아요. 사용 한도를 낮춘 키를 쓰고, 아이가 쓰는 기기에는 저장하지 않는 편이 안전합니다.</p>
-        <label class="fld" style="margin-top:12px">API 키</label>
-        <input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
+        <h3 class="card-title" style="margin-bottom:8px"><span>🔑</span> AI 연결</h3>
+        <p class="hint">제공사를 고르고 키를 넣으면 사진 분석을 쓸 수 있어요. 키는 이 브라우저에만 저장되고 파일에는 들어가지 않습니다.</p>
+        <label class="fld" style="margin-top:12px">제공사</label>
+        <select id="provSel">
+          <option value="gemini">Google Gemini</option>
+          <option value="anthropic">Anthropic (Claude)</option>
+        </select>
+        <label class="fld" style="margin-top:10px">API 키</label>
+        <input id="apiKey" type="password" autocomplete="off" placeholder="AIza…">
         <label class="fld" style="margin-top:10px">모델</label>
-        <input id="modelIn" placeholder="claude-sonnet-5-5">
+        <input id="modelIn" placeholder="gemini-3.8-flash">
         <div class="row wrap" style="margin-top:10px">
           <button id="aiSave" class="btn sm primary">저장</button>
           <button id="aiCheck" class="btn sm ghost">연결 확인</button>
@@ -556,9 +561,18 @@ function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('on
 /* ═══════════ 상태 ═══════════ */
 const EMPTY = () => ({
   v: 2, name: '동윤', ar: '2.5~3.5', books: [], vocab: {}, sessions: [], wrong: [],
-  ai: { model: 'claude-sonnet-5-5' }, active: { book: '', chapter: '', page: 0 }
+  ai: { provider: 'gemini', models: { gemini: 'gemini-3.8-flash', anthropic: 'claude-sonnet-5-5' } },
+  active: { book: '', chapter: '', page: 0 }
 });
 let S = EMPTY();
+
+const AI_DEFAULT = { provider: 'gemini', models: { gemini: 'gemini-3.8-flash', anthropic: 'claude-sonnet-5-5' } };
+function normalizeAI(a) {
+  a = a && typeof a === 'object' ? a : {};
+  const out = { provider: a.provider === 'anthropic' ? 'anthropic' : 'gemini', models: Object.assign({}, AI_DEFAULT.models, a.models || {}) };
+  if (a.model && typeof a.model === 'string') out.models[out.provider] = a.model;
+  return out;
+}
 
 function normalizeState(o) {
   const base = EMPTY();
@@ -570,7 +584,7 @@ function normalizeState(o) {
     vocab: (o.vocab && typeof o.vocab === 'object') ? o.vocab : {},
     sessions: Array.isArray(o.sessions) ? o.sessions : [],
     wrong: Array.isArray(o.wrong) ? o.wrong : [],
-    ai: Object.assign({ model: 'claude-sonnet-5-5' }, o.ai || {}),
+    ai: normalizeAI(o.ai),
     active: Object.assign({ book: '', chapter: '', page: 0 }, o.active || {})
   });
   out.books = out.books.filter(b => b && typeof b.id === 'string').map(b => ({
@@ -1138,49 +1152,84 @@ $('pagesList').onclick = e => {
 };
 
 /* ── AI 설정 ── */
-const getKey = () => { try { return localStorage.getItem(KEY_API) || ''; } catch (e) { return ''; } };
-function renderAI() {
-  const k = getKey();
-  $('aiStatus').textContent = k ? '✅ 키 저장됨 (끝 4자리 ' + k.slice(-4) + ')' : '아직 저장된 키가 없어요. 사진 분석을 하려면 키가 필요해요.';
-  $('modelIn').value = S.ai.model || 'claude-sonnet-5-5';
-  $('childAr').value = S.ar;
-  $('critLevel').textContent = 'AR ' + (book().ar || S.ar);
+const PROVIDERS = {
+  gemini: { label: 'Google Gemini', def: 'gemini-3.8-flash', ph: 'AIza…', keys: 'https://aistudio.google.com/apikey' },
+  anthropic: { label: 'Anthropic', def: 'claude-sonnet-5-5', ph: 'sk-ant-…', keys: 'https://console.anthropic.com' }
+};
+const keyName = p => 'readingBuddy:key:' + p;
+function getKey(prov) {
+  const p = prov || S.ai.provider;
+  try {
+    const k = localStorage.getItem(keyName(p));
+    if (k) return k;
+    /* 이전 버전(단일 키) → Anthropic 키로 이어받기 */
+    if (p === 'anthropic') return localStorage.getItem(KEY_API) || '';
+    return '';
+  } catch (e) { return ''; }
 }
+const getModel = () => S.ai.models[S.ai.provider] || AI_DEFAULT.models[S.ai.provider];
+function renderAI() {
+  const p = S.ai.provider, k = getKey(p), P = PROVIDERS[p];
+  $('provSel').value = p;
+  $('apiKey').placeholder = P.ph;
+  $('modelIn').value = getModel();
+  $('modelIn').placeholder = P.def;
+  $('aiStatus').textContent = k
+    ? '✅ ' + P.label + ' 키 저장됨 (끝 4자리 ' + k.slice(-4) + ')'
+    : P.label + ' 키가 아직 없어요. ' + P.keys + ' 에서 발급할 수 있어요.';
+  $('childAr').value = S.ar;
+  $('critLevel').textContent = 'AR ' + (book().ar || S.ar) + ' · ' + P.label + ' ' + getModel();
+}
+$('provSel').onchange = e => {
+  S.ai.provider = e.target.value === 'anthropic' ? 'anthropic' : 'gemini';
+  save(); $('modelList').innerHTML = ''; renderAI();
+};
 $('aiSave').onclick = () => {
   const v = $('apiKey').value.trim();
   if (v) {
-    if (!/^sk-ant-/.test(v)) return toast('Anthropic 키(sk-ant-로 시작)를 넣어주세요.');
-    try { localStorage.setItem(KEY_API, v); } catch (e) { return toast('이 브라우저에서는 키를 저장할 수 없어요.'); }
+    if (v.length < 20) return toast('키가 너무 짧아요. 다시 확인해 주세요.');
+    try { localStorage.setItem(keyName(S.ai.provider), v); } catch (e) { return toast('이 브라우저에서는 키를 저장할 수 없어요.'); }
     $('apiKey').value = '';
   }
   const m = $('modelIn').value.trim();
-  if (m) S.ai.model = m;
-  save(); renderAI(); toast('AI 설정을 저장했어요');
+  if (m) S.ai.models[S.ai.provider] = m;
+  save(); renderAI(); toast(PROVIDERS[S.ai.provider].label + ' 설정을 저장했어요');
 };
 $('aiDel').onclick = () => {
-  try { localStorage.removeItem(KEY_API); } catch (e) {}
+  try { localStorage.removeItem(keyName(S.ai.provider)); localStorage.removeItem(KEY_API); } catch (e) {}
   renderAI(); toast('키를 삭제했어요');
 };
 $('aiCheck').onclick = async () => {
-  const k = getKey();
+  const p = S.ai.provider, k = getKey(p), P = PROVIDERS[p];
   if (!k) return toast('먼저 API 키를 저장해 주세요.');
-  $('aiStatus').textContent = '모델 목록을 확인하는 중…';
+  $('aiStatus').textContent = P.label + ' 모델 목록을 확인하는 중…';
   try {
-    const r = await fetch('https://api.anthropic.com/v1/models?limit=30', {
-      headers: { 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
-    });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    const ids = (j.data || []).map(x => x.id);
+    let ids = [];
+    if (p === 'gemini') {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100', { headers: { 'x-goog-api-key': k } });
+      if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      const j = await r.json();
+      ids = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map(m => m.name.replace('models/', ''));
+    } else {
+      const r = await fetch('https://api.anthropic.com/v1/models?limit=30', {
+        headers: { 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+      });
+      if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      const j = await r.json();
+      ids = (j.data || []).map(x => x.id);
+    }
     $('aiStatus').textContent = ids.length ? '✅ 사용 가능한 모델 ' + ids.length + '개 · 눌러서 선택하세요' : '모델 목록이 비어 있어요.';
     $('modelList').innerHTML = ids.map(id => '<button class="chip" data-model="' + esc(id) + '" style="font-size:12px;min-height:38px">' + esc(id) + '</button>').join('');
   } catch (e) {
-    $('aiStatus').textContent = '❌ 확인 실패 (' + e.message + ') · 키와 인터넷 연결을 확인해주세요.';
+    $('aiStatus').textContent = '❌ 확인 실패 (' + (e.status ? 'HTTP ' + e.status : e.message) + ') · 키와 인터넷 연결을 확인해주세요.';
   }
 };
 $('modelList').onclick = e => {
   const b = e.target.closest('[data-model]'); if (!b) return;
-  S.ai.model = b.dataset.model; $('modelIn').value = S.ai.model; save(); toast('모델을 바꿨어요: ' + S.ai.model);
+  S.ai.models[S.ai.provider] = b.dataset.model;
+  $('modelIn').value = b.dataset.model; save(); renderAI();
+  toast('모델을 바꿨어요: ' + b.dataset.model);
 };
 $('childArSave').onclick = () => {
   const v = $('childAr').value.trim();
@@ -1202,7 +1251,7 @@ Rules:
 - If the page is only a title page or word list with no story, return "questions":[].
 - Output JSON only.`;
 
-function getModel() { return S.ai.model || 'claude-sonnet-5-5'; }
+
 async function toJpegB64(file) {
   const u = URL.createObjectURL(file), im = new Image();
   await new Promise((ok, no) => { im.onload = ok; im.onerror = no; im.src = u; });
@@ -1228,33 +1277,52 @@ function cleanPage(o) {
   };
 }
 const friendly = err => {
-  if (err.status === 401) return 'API 키가 올바르지 않아요. ⚙ AI 설정에서 확인해 주세요.';
+  if (err.status === 401 || err.status === 403) return 'API 키가 올바르지 않거나 권한이 없어요. ⚙ AI 설정에서 확인해 주세요.';
   if (err.status === 404) return '모델 이름을 찾을 수 없어요. AI 설정 → 연결 확인에서 모델을 골라주세요.';
   if (err.status === 429) return '요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.';
   if (err.status === 400 && /credit|billing/i.test(err.message || '')) return 'API 크레딧이 부족해요.';
   if (err.status >= 500) return 'AI 서버가 잠시 바빠요.';
   return err.message || '알 수 없는 오류';
 };
-async function analyzePage(file) {
-  const key = getKey();
-  if (!key) throw new Error('먼저 ⚙ AI 설정에서 API 키를 저장해 주세요.');
-  const b = book(), c = chapter();
-  const known = Object.values(bank()).slice(0, 120).map(x => x.w).join(', ');
-  const b64 = await toJpegB64(file);
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+async function callAI(b64, prompt) {
+  const p = S.ai.provider, key = getKey(p), model = getModel();
+  if (!key) throw new Error(PROVIDERS[p].label + ' API 키가 없어요. ⚙ AI 설정에서 저장해 주세요.');
+  if (p === 'gemini') {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + key, 'x-goog-api-key': key },
+      body: JSON.stringify({
+        model, temperature: 0.2, max_tokens: 4000,
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + b64 } }
+        ] }]
+      })
+    });
+    if (!r.ok) { const e = new Error((await r.text()).slice(0, 300)); e.status = r.status; throw e; }
+    const j = await r.json();
+    return (((j.choices || [])[0] || {}).message || {}).content || '';
+  }
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({
-      model: getModel(), max_tokens: 4000,
+      model, max_tokens: 4000,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
-        { type: 'text', text: AI_PROMPT(b.title, c.title, b.ar || S.ar, known) }
+        { type: 'text', text: prompt }
       ] }]
     })
   });
-  if (!res.ok) { const e = new Error((await res.text()).slice(0, 200)); e.status = res.status; throw e; }
-  const j = await res.json();
-  const txt = (j.content || []).filter(x => x.type === 'text').map(x => x.text).join('');
+  if (!r.ok) { const e = new Error((await r.text()).slice(0, 300)); e.status = r.status; throw e; }
+  const j = await r.json();
+  return (j.content || []).filter(x => x.type === 'text').map(x => x.text).join('');
+}
+async function analyzePage(file) {
+  const b = book(), c = chapter();
+  const known = Object.values(bank()).slice(0, 120).map(x => x.w).join(', ');
+  const b64 = await toJpegB64(file);
+  const txt = await callAI(b64, AI_PROMPT(b.title, c.title, b.ar || S.ar, known));
   const raw = txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1);
   const page = cleanPage(JSON.parse(raw));
   if (!page.panels.length) throw new Error('페이지에서 지문을 찾지 못했어요. 더 선명한 사진으로 다시 올려주세요.');
@@ -1264,7 +1332,7 @@ $('imgInput').onchange = async e => {
   const files = [...e.target.files];
   e.target.value = '';
   if (!files.length) return;
-  if (!getKey()) { $('upStatus').textContent = '먼저 AI 설정에서 API 키를 저장해 주세요.'; showPP('ai'); return; }
+  if (!getKey()) { $('upStatus').textContent = '먼저 AI 설정에서 ' + PROVIDERS[S.ai.provider].label + ' 키를 저장해 주세요.'; showPP('ai'); return; }
   if (!confirm('사진 ' + files.length + '장을 분석합니다.\n장당 API 호출 1회, 10~30초 걸려요. 시작할까요?')) return;
   let n = 0;
   for (const f of files) {
