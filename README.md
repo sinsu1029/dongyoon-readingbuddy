@@ -1,4 +1,4 @@
-[reading-buddy (5).html](https://github.com/user-attachments/files/33707277/reading-buddy.5.html)
+[reading-buddy (6).html](https://github.com/user-attachments/files/33708392/reading-buddy.6.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -710,9 +710,10 @@ function goTab(t) {
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => goTab(b.dataset.tab));
 
 /* ═══════════ 오늘 ═══════════ */
-let qMode = 'word', qData = [], qPick = {};
+let qMode = 'word', qData = [], qPick = {}, qOrder = new Map(), lastPageId = null;
 function renderToday() {
   const b = book(), c = chapter(), p = page();
+  if ((p ? p.id : null) !== lastPageId) { qPick = {}; lastPageId = p ? p.id : null; }
   $('heroTitle').textContent = b.title;
   $('heroLevel').textContent = 'AR ' + (b.ar || S.ar);
   $('heroSub').textContent = c.title + (p ? ' · p.' + p.n : ' · 페이지 없음');
@@ -868,6 +869,12 @@ function renderQuiz(p) {
   $('qTabWord').className = qMode === 'word' ? 'on' : '';
   $('qTabRead').className = qMode === 'read' ? 'on' : '';
   qData = buildQuiz(qMode, p);
+  const dirNow = $('qzDir').value;
+  qData.forEach(q => {
+    const k = p.id + '|' + qMode + '|' + dirNow + '|' + q.id;
+    if (qOrder.has(k)) q.o = qOrder.get(k).slice();
+    else qOrder.set(k, q.o.slice());
+  });
   if (!qData.length) {
     $('quizBody').innerHTML = '<p class="empty">' + (qMode === 'word'
       ? '이 페이지에는 풀 단어가 없어요.'
@@ -878,16 +885,16 @@ function renderQuiz(p) {
   let done = 0, ok = 0;
   const cards = qData.map((q, i) => {
     const picked = qPick[q.id], answered = picked !== null && picked !== undefined;
-    if (answered) { done++; if (q.o[picked] === q.a) ok++; }
+    if (answered) { done++; if (picked === q.a) ok++; }
     const opts = q.o.map((t, j) => {
       let cls = 'opt';
       if (answered) {
         if (t === q.a) cls += ' good';
-        else if (j === picked) cls += ' bad';
+        else if (t === picked) cls += ' bad';
       }
       return '<button class="' + cls + '" data-i="' + i + '" data-j="' + j + '"' + (answered ? ' disabled' : '') + '>' + 'ABC'[j] + ') ' + esc(t) + '</button>';
     }).join('');
-    const fb = !answered ? '' : (q.o[picked] === q.a)
+    const fb = !answered ? '' : (picked === q.a)
       ? '<p class="fb ok">🎉 정답! ' + esc(q.ex) + '</p>'
       : '<p class="fb bad">정답은 <b>' + esc(q.a) + '</b> 이에요. ' + esc(q.ex) + '</p>';
     return '<div class="qcard"><div class="qhead"><span class="qlabel">' + (qMode === 'word' ? 'Vocabulary' : 'Reading') + ' Q' + (i + 1) + '</span>' +
@@ -902,17 +909,17 @@ function renderQuiz(p) {
     '<div class="row between" style="background:var(--indigo-soft);border-radius:14px;padding:12px"><b style="font-size:14px;color:#312e81">' + label +
     '</b><button id="qRetry" class="btn tiny ghost">🔄 다시 풀기</button></div>';
 }
-$('qTabWord').onclick = () => { qMode = 'word'; qPick = {}; stopAll(); renderQuiz(page()); };
-$('qTabRead').onclick = () => { qMode = 'read'; qPick = {}; stopAll(); renderQuiz(page()); };
+$('qTabWord').onclick = () => { qMode = 'word'; qPick = {}; qOrder.clear(); stopAll(); renderQuiz(page()); };
+$('qTabRead').onclick = () => { qMode = 'read'; qPick = {}; qOrder.clear(); stopAll(); renderQuiz(page()); };
 $('quizBody').onclick = e => {
   const sp = e.target.closest('[data-say]');
   if (sp) return speak(sp.dataset.say);
-  if (e.target.closest('#qRetry')) { qPick = {}; renderQuiz(page()); return; }
+  if (e.target.closest('#qRetry')) { qPick = {}; qOrder.clear(); renderQuiz(page()); return; }
   const b = e.target.closest('.opt');
   if (!b) return;
   const i = +b.dataset.i, j = +b.dataset.j, q = qData[i];
   if (qPick[q.id] !== null && qPick[q.id] !== undefined) return;
-  qPick[q.id] = j;
+  qPick[q.id] = q.o[j];
   const ok = q.o[j] === q.a;
   recordAnswer(q, ok, q.o[j]);
   refreshWordStats(q, ok);
