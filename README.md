@@ -1,4 +1,4 @@
-[reading-buddy (9).html](https://github.com/user-attachments/files/33750668/reading-buddy.9.html)
+[reading-buddy (10).html](https://github.com/user-attachments/files/33751141/reading-buddy.10.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -621,9 +621,10 @@ function normalizeAI(a) {
   return out;
 }
 
+function defaultBook(ar) { return { id: uid('b'), title: '우리 책', ar: ar || '2.5~3.5', chapters: [{ id: uid('c'), title: 'Chapter 1', pages: [] }] }; }
 function normalizeState(o) {
   const base = EMPTY();
-  if (!o || typeof o !== 'object') return base;
+  if (!o || typeof o !== 'object') { base.books.push(defaultBook(base.ar)); return base; }
   const out = Object.assign(base, {
     name: typeof o.name === 'string' ? o.name : '동윤',
     ar: typeof o.ar === 'string' ? o.ar : '2.5~3.5',
@@ -646,7 +647,7 @@ function normalizeState(o) {
       }))
     }))
   }));
-  if (!out.books.length) out.books.push({ id: uid('b'), title: '우리 책', ar: out.ar, chapters: [{ id: uid('c'), title: 'Chapter 1', pages: [] }] });
+  if (!out.books.length) out.books.push(defaultBook(out.ar));
   out.sets = (Array.isArray(o.sets) ? o.sets : []).filter(x => x && x.key).map(x => ({
     key: String(x.key), title: x.title || '', chNum: x.chNum || '', chTitle: x.chTitle || '', ar: x.ar || out.ar,
     conf: x.conf || '', premise: x.premise || '', summary: x.summary || '',
@@ -1836,7 +1837,6 @@ $('shareBtn').onclick = async () => {
   downloadBackup(f);
   $('impSt').textContent = '이 브라우저는 공유 창을 지원하지 않아 파일로 내려받았어요. 카톡·메일로 보내주세요.';
 };
-$('quickImpBtn').onclick = openImportModal;
 let pendingImport = null;
 const openImportModal = () => {
   $('impCode').value = '';
@@ -1844,6 +1844,7 @@ const openImportModal = () => {
   $('impModal').classList.remove('hidden');
 };
 $('impBtn').onclick = openImportModal;
+$('quickImpBtn').onclick = openImportModal;
 $('impPick').onclick = () => $('impFile').click();
 $('impCodeOk').onclick = async () => {
   const t = $('impCode').value.trim();
