@@ -1,4 +1,4 @@
-[reading-buddy (8).html](https://github.com/user-attachments/files/33750270/reading-buddy.8.html)
+[reading-buddy (9).html](https://github.com/user-attachments/files/33750668/reading-buddy.9.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -513,10 +513,14 @@
         <div class="row wrap" style="margin-top:12px">
           <button id="expBtn" class="btn soft" style="flex:1">⬇️ 내보내기</button>
           <button id="shareBtn" class="btn primary" style="flex:1">📤 공유하기</button>
+          <button id="codeBtn" class="btn soft" style="flex:1">📋 코드 복사</button>
           <button id="impBtn" class="btn ghost" style="flex:1">⬆️ 불러오기</button>
           <input id="impFile" type="file" accept=".json,application/json" class="hidden">
         </div>
         <p id="impSt" class="status"></p>
+        <p id="dlHint" class="hint" style="display:none"></p>
+        <div id="dlLinkBox"></div>
+        <textarea id="codeOut" class="hidden" rows="4" readonly placeholder="코드가 여기에 나와요" style="margin-top:8px;font-size:12px" aria-label="백업 코드"></textarea>
       </div>
       <div class="card">
         <h3 class="card-title" style="margin-bottom:8px"><span>🧹</span> 정리</h3>
@@ -570,6 +574,10 @@
   <div class="sheet">
     <h2 style="margin:0;font-size:19px;font-weight:800">백업 불러오기</h2>
     <p class="hint" id="impInfo"></p>
+    <button id="impPick" class="btn soft block" style="margin-top:12px">📂 백업 파일 선택</button>
+    <label class="fld" style="margin-top:12px">또는 붙여넣기 코드</label>
+    <textarea id="impCode" rows="3" placeholder="RB1.... 로 시작하는 코드를 붙여넣으세요" aria-label="백업 코드 붙여넣기"></textarea>
+    <button id="impCodeOk" class="btn soft block" style="margin-top:8px">📋 코드로 읽기</button>
     <div class="stack" style="margin-top:16px">
       <button id="impMerge" class="btn primary block">합치기</button>
       <button id="impReplace" class="btn danger block">덮어쓰기</button>
@@ -1746,13 +1754,71 @@ function backupFile() {
   const name = 'reading-buddy-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '.json';
   return new File([JSON.stringify(S, null, 2)], name, { type: 'application/json' });
 }
-function downloadBackup(f) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(f); a.download = f.name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+function b64enc(bytes) {
+  let s = ''; const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(s);
 }
-$('expBtn').onclick = () => { downloadBackup(backupFile()); $('impSt').textContent = '백업 파일을 내려받았어요. 다른 기기로 보내주세요.'; };
+function b64dec(str) {
+  const bin = atob(str), u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+async function packState() {
+  const json = JSON.stringify(S);
+  try {
+    if (window.CompressionStream) {
+      const cs = new CompressionStream('gzip');
+      const w = cs.writable.getWriter();
+      w.write(new TextEncoder().encode(json)); w.close();
+      const buf = await new Response(cs.readable).arrayBuffer();
+      return 'RB1.' + b64enc(new Uint8Array(buf));
+    }
+  } catch (e) {}
+  try { return 'RB0.' + b64enc(new TextEncoder().encode(json)); } catch (e) { return ''; }
+}
+async function unpackState(code) {
+  const t = String(code || '').replace(/\s+/g, '');
+  if (t.indexOf('RB1.') === 0) {
+    if (!window.DecompressionStream) throw new Error('이 브라우저는 코드 불러오기를 지원하지 않아요. 파일로 불러와 주세요.');
+    const ds = new DecompressionStream('gzip');
+    const w = ds.writable.getWriter();
+    w.write(b64dec(t.slice(4))); w.close();
+    return JSON.parse(await new Response(ds.readable).text());
+  }
+  if (t.indexOf('RB0.') === 0) return JSON.parse(new TextDecoder().decode(b64dec(t.slice(4))));
+  return JSON.parse(t);
+}
+function downloadBackup(f) {
+  const url = URL.createObjectURL(f);
+  const a = document.createElement('a');
+  a.href = url; a.download = f.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  $('dlHint').style.display = '';
+  $('dlHint').innerHTML = '💾 파일명 <b>' + esc(f.name) + '</b>' + (/(iPad|iPhone|Android)/i.test(navigator.userAgent) ? ' — 저장이 안 되면 아래 링크를 길게 눌러 저장하세요.' : ' — 저장이 안 되면 아래 버튼을 눌러 다시 시도하세요.');
+  $('dlLinkBox').innerHTML = '<a class="btn soft block" style="margin-top:6px;text-align:center" href="' + url + '" download="' + esc(f.name) + '">⬇️ ' + esc(f.name) + ' 저장</a>';
+  setTimeout(() => URL.revokeObjectURL(url), 1800000);
+}
+$('expBtn').onclick = () => {
+  downloadBackup(backupFile());
+  $('impSt').textContent = '내려받기를 시작했어요. 브라우저 다운로드 목록에서 파일명을 확인하세요. 파일이 안 보이면 아래 링크나 📋 코드 복사를 쓰세요.';
+};
+$('codeBtn').onclick = async () => {
+  $('impSt').textContent = '코드를 만드는 중…';
+  const code = await packState();
+  if (!code) { $('impSt').textContent = '이 브라우저는 코드 만들기를 지원하지 않아요. 파일로 보내주세요.'; return; }
+  $('codeOut').classList.remove('hidden');
+  $('codeOut').value = code;
+  let copied = false;
+  try { await navigator.clipboard.writeText(code); copied = true; } catch (e) { copied = false; }
+  const note = code.length > 9000 ? ' 코드가 길어 카톡에서 잘릴 수 있어요. 그때는 📤 공유하기나 ⬇️ 내보내기 파일을 쓰세요.' : '';
+  if (copied) {
+    $('impSt').textContent = '✅ 코드를 복사했어요 (' + code.length.toLocaleString() + '자). 카톡 "나에게 보내기"에 붙여넣고, 폰에서 ⬆️ 불러오기 → 코드로 읽기를 누르세요.' + note;
+  } else {
+    $('codeOut').focus(); $('codeOut').select();
+    $('impSt').textContent = '아래 상자에 코드가 나왔어요 (' + code.length.toLocaleString() + '자). 길게 눌러 복사해 주세요.' + note;
+  }
+};
 $('shareBtn').onclick = async () => {
   const f = backupFile();
   $('impSt').textContent = '공유 창을 여는 중…';
@@ -1770,12 +1836,28 @@ $('shareBtn').onclick = async () => {
   downloadBackup(f);
   $('impSt').textContent = '이 브라우저는 공유 창을 지원하지 않아 파일로 내려받았어요. 카톡·메일로 보내주세요.';
 };
-$('quickImpBtn').onclick = () => {
-  toast('다른 기기에서 내보낸 백업 파일을 골라주세요.');
-  $('impFile').click();
-};
+$('quickImpBtn').onclick = openImportModal;
 let pendingImport = null;
-$('impBtn').onclick = () => $('impFile').click();
+const openImportModal = () => {
+  $('impCode').value = '';
+  $('impInfo').textContent = '백업 파일을 고르거나, 복사한 코드를 붙여넣어 주세요.';
+  $('impModal').classList.remove('hidden');
+};
+$('impBtn').onclick = openImportModal;
+$('impPick').onclick = () => $('impFile').click();
+$('impCodeOk').onclick = async () => {
+  const t = $('impCode').value.trim();
+  if (!t) return toast('붙여넣은 코드가 없어요.');
+  try {
+    const d = await unpackState(t);
+    if (!d || !Array.isArray(d.books)) throw new Error('bad');
+    pendingImport = d;
+    $('impInfo').textContent = '코드에서 책 ' + d.books.length + '권 · 학습 ' + (d.sessions || []).length + '회를 찾았어요. 어떻게 넣을까요?';
+    toast('코드를 읽었어요');
+  } catch (e) {
+    toast('코드를 읽을 수 없어요. 처음부터 끝까지 복사했는지 확인해 주세요.');
+  }
+};
 $('impFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
@@ -1791,7 +1873,7 @@ $('impFile').onchange = e => {
   };
   r.readAsText(f);
 };
-const closeImport = () => { $('impModal').classList.add('hidden'); pendingImport = null; };
+const closeImport = () => { $('impModal').classList.add('hidden'); pendingImport = null; $('impCode').value = ''; $('impInfo').textContent = ''; };
 $('impCancel').onclick = closeImport;
 $('impReplace').onclick = () => doImport('replace');
 $('impMerge').onclick = () => doImport('merge');
