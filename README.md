@@ -1,4 +1,4 @@
-[reading-buddy (6).html](https://github.com/user-attachments/files/33708392/reading-buddy.6.html)
+[reading-buddy (7).html](https://github.com/user-attachments/files/33749676/reading-buddy.7.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -196,8 +196,6 @@
   /* ── 모달 ─────────────────────────────────────────── */
   .modal{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,15,35,.5)}
   .sheet{width:100%;max-width:420px;background:#fff;border-radius:24px;padding:22px;box-shadow:0 24px 60px rgba(15,15,35,.35);max-height:88vh;overflow-y:auto}
-  .gate-q{font-size:30px;font-weight:800;text-align:center;margin:18px 0;letter-spacing:.04em}
-  .gate-in{height:62px;font-size:24px;font-weight:800;text-align:center}
 
   /* ── 토스트 · 속도 ────────────────────────────────── */
   .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%) translateY(10px);z-index:99;max-width:88%;padding:12px 18px;border-radius:14px;background:#191934;color:#fff;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.25s}
@@ -214,6 +212,8 @@
     .rev-word{grid-template-columns:1fr 1fr;gap:6px}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.badge-est{display:inline-block;font-size:10px;font-weight:800;color:#8a5200;background:#fff3cd;border-radius:999px;padding:1px 6px;vertical-align:middle;margin-left:4px}
+.pill.est{background:#fff3cd;color:#8a5200}
 </style>
 </head>
 <body>
@@ -344,6 +344,7 @@
     <div class="pnav" id="pnav">
       <button data-p="book" class="on">책 · 챕터</button>
       <button data-p="upload">사진 → 분석</button>
+      <button data-p="gen">📖 책 정보 → 생성</button>
       <button data-p="review">승인 대기</button>
       <button data-p="pages">페이지 관리</button>
       <button data-p="ai">AI 설정</button>
@@ -390,7 +391,7 @@
     <div id="pp-upload" class="pp hidden">
       <div class="card">
         <h3 class="card-title" style="margin-bottom:8px"><span>📸</span> 페이지 사진 올리기</h3>
-        <p class="hint">노블 페이지를 찍어 올리면 AI가 <b>지문 · 필수 어휘 · 내용 이해 문제</b>를 뽑아요. 결과는 바로 아이 화면에 가지 않고 <b>승인 대기</b>에 쌓입니다.<br>사진은 <b>인터넷 연결</b>이 필요하고, 1장당 10~30초 걸려요. 분석 결과는 새로고침하면 사라지니 승인까지 마쳐주세요.</p>
+        <p class="hint">노블 페이지를 찍어 올리면 AI가 <b>지문 · 필수 어휘 · 내용 이해 문제</b>를 뽑아요. 결과는 바로 아이 화면에 가지 않고 <b>승인 대기</b>에 쌓입니다.<br>사진은 <b>인터넷 연결</b>이 필요하고, 1장당 10~30초 걸려요. 분석 결과는 새로고침하면 사라지니 승인까지 마쳐주세요.<br>사진 없이 <b>책 제목만으로</b> 만들려면 <b>📖 책 정보 → 생성</b> 탭을 쓰세요.</p>
         <label class="btn primary block" for="imgInput" style="margin-top:12px">📷 사진 선택 (여러 장 가능)</label>
         <input id="imgInput" type="file" accept="image/*" multiple class="hidden">
         <p id="upStatus" class="status"></p>
@@ -399,6 +400,52 @@
       <div class="card">
         <h3 class="card-title" style="margin-bottom:8px"><span>🎯</span> 분석 기준</h3>
         <p class="hint">현재 설정: <b id="critLevel">AR 2.5~3.5</b> · 페이지당 단어 6~8개 · 문제 4~5개<br>책을 바꾸면 그 책의 AR 레벨로 분석해요.</p>
+      </div>
+    </div>
+
+
+    <!-- 책 정보 → 생성 -->
+    <div id="pp-gen" class="pp hidden">
+      <div class="card">
+        <h3 class="card-title" style="margin-bottom:8px"><span>&#128214;</span> 책 정보만으로 만들기</h3>
+        <p class="hint">책을 찍지 않고 <b>제목과 챕터</b>만 적어 단어·문제를 만들어요. AI가 기억으로 떠올리는 내용이라 결과에 <b>AI 추정</b> 표시가 붙고, 부모님 검수를 거쳐야 아이 화면에 들어갑니다.<br>같은 책·챕터는 한 번 만들면 <b>저장돼 다음부터 API를 쓰지 않아요.</b></p>
+        <label class="fld" style="margin-top:12px">책 제목 *</label>
+        <input id="gTitle" placeholder="예: Magic Tree House #1 Dinosaurs Before Dark">
+        <label class="fld" style="margin-top:10px">챕터 번호</label>
+        <input id="gChNum" placeholder="예: 3">
+        <label class="fld" style="margin-top:10px">챕터 제목 (책 목차에 있으면 꼭 함께)</label>
+        <input id="gChTitle" placeholder="예: Where Is Here?">
+        <label class="fld" style="margin-top:10px">AR 레벨</label>
+        <input id="gAr" placeholder="2.5~3.5">
+        <div class="row wrap" style="margin-top:12px">
+          <button id="gStep1" class="btn primary">&#9312; 책 확인</button>
+          <button id="gStep2" class="btn soft" disabled>&#9313; 단어·문제 생성</button>
+        </div>
+        <p id="gStatus" class="status"></p>
+      </div>
+      <div id="gConfirmCard" class="card hidden">
+        <h3 class="card-title" style="margin-bottom:8px"><span>&#128270;</span> 확인 단계 · 이 책이 맞나요?</h3>
+        <div id="gConfirm"></div>
+        <div class="row wrap" style="margin-top:12px">
+          <button id="gYes" class="btn sm primary">맞아요, 생성하기</button>
+          <button id="gNo" class="btn sm ghost">아니에요, 다시 입력</button>
+        </div>
+      </div>
+      <div id="gResultCard" class="card hidden">
+        <h3 class="card-title" style="margin-bottom:8px"><span>&#129302;</span> 생성 결과</h3>
+        <div id="gResult"></div>
+        <div class="row wrap" style="margin-top:12px">
+          <button id="gSave" class="btn sm primary">검수 화면에서 확인</button>
+          <button id="gDrop" class="btn sm ghost">버리기</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h3 class="card-title"><span>&#128451;</span> 저장된 세트</h3>
+          <span class="hint" id="gSetCount" style="margin:0"></span>
+        </div>
+        <p class="hint" style="margin:-4px 0 12px">한 번 만든 세트는 다시 만들 때 API를 쓰지 않아요. 눌러서 바로 불러오세요.</p>
+        <div id="gSets" class="stack"></div>
       </div>
     </div>
 
@@ -511,19 +558,7 @@
 </div>
 
 
-<!-- 부모 확인 -->
-<div id="gate" class="modal hidden" role="dialog" aria-modal="true">
-  <div class="sheet">
-    <h2 style="margin:0;font-size:19px;font-weight:800">부모님 확인</h2>
-    <p class="hint">아이가 실수로 설정을 바꾸지 않도록 확인해요.</p>
-    <p class="gate-q" id="gateQ">7 × 8 = ?</p>
-    <input id="gateIn" class="gate-in" type="text" inputmode="numeric" autocomplete="off" aria-label="정답">
-    <div class="row" style="justify-content:flex-end;margin-top:14px">
-      <button id="gateCancel" class="btn ghost">취소</button>
-      <button id="gateOk" class="btn primary">확인</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- 이미지 확대 -->
 <div id="zoom" class="zoom hidden"><img id="zoomImg" alt="확대"></div>
@@ -562,7 +597,7 @@ function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('on
 
 /* ═══════════ 상태 ═══════════ */
 const EMPTY = () => ({
-  v: 2, name: '동윤', ar: '2.5~3.5', books: [], vocab: {}, sessions: [], wrong: [],
+  v: 2, name: '동윤', ar: '2.5~3.5', books: [], vocab: {}, sessions: [], wrong: [], sets: [],
   ai: { provider: 'gemini', models: { gemini: 'gemini-3.8-flash', anthropic: 'claude-sonnet-5-5' } },
   active: { book: '', chapter: '', page: 0 }
 });
@@ -594,14 +629,21 @@ function normalizeState(o) {
     chapters: (Array.isArray(b.chapters) ? b.chapters : []).filter(c => c && c.id).map(c => ({
       id: c.id, title: c.title || 'Chapter',
       pages: (Array.isArray(c.pages) ? c.pages : []).filter(p => p && Array.isArray(p.panels)).map(p => ({
-        id: p.id || uid('p'), n: p.n || 1, date: p.date || ymd(new Date()), done: !!p.done,
+        id: p.id || uid('p'), n: p.n || 1, date: p.date || ymd(new Date()), done: !!p.done, src: p.src === 'ai' ? 'ai' : '',
         panels: (p.panels || []).filter(x => x && x.text).map((x, i) => ({ n: x.n || i + 1, text: x.text })),
-        words: (p.words || []).filter(x => x && x.w).map(x => ({ w: x.w, ipa: x.ipa || '', ko: x.ko || '' })),
-        questions: (p.questions || []).filter(x => x && x.q).map(x => ({ q: x.q, ko: x.ko || '', a: x.a || '', o: Array.isArray(x.o) ? x.o : [], ex: x.ex || '' }))
+        words: (p.words || []).filter(x => x && x.w).map(x => ({ w: x.w, ipa: x.ipa || '', ko: x.ko || '', est: !!x.est })),
+        questions: (p.questions || []).filter(x => x && x.q).map(x => ({ q: x.q, ko: x.ko || '', a: x.a || '', o: Array.isArray(x.o) ? x.o : [], ex: x.ex || '', est: !!x.est }))
       }))
     }))
   }));
   if (!out.books.length) out.books.push({ id: uid('b'), title: '우리 책', ar: out.ar, chapters: [{ id: uid('c'), title: 'Chapter 1', pages: [] }] });
+  out.sets = (Array.isArray(o.sets) ? o.sets : []).filter(x => x && x.key).map(x => ({
+    key: String(x.key), title: x.title || '', chNum: x.chNum || '', chTitle: x.chTitle || '', ar: x.ar || out.ar,
+    conf: x.conf || '', premise: x.premise || '', summary: x.summary || '',
+    words: (Array.isArray(x.words) ? x.words : []).filter(w => w && w.w).map(w => ({ w: w.w, ipa: w.ipa || '', ko: w.ko || '', d: w.d || '' })),
+    questions: (Array.isArray(x.questions) ? x.questions : []).filter(q => q && q.q).map(q => ({ q: q.q, ko: q.ko || '', a: q.a || '', o: Array.isArray(q.o) ? q.o : [], ex: q.ex || '' })),
+    at: x.at || '', used: x.used || ''
+  }));
   out.books.forEach(b => { if (!b.chapters.length) b.chapters.push({ id: uid('c'), title: 'Chapter 1', pages: [] }); });
   const b0 = out.books.find(b => b.id === out.active.book) || out.books[0];
   out.active.book = b0.id;
@@ -741,7 +783,8 @@ function renderToday() {
 }
 
 function renderPassage(p) {
-  $('passage').innerHTML = p.panels.map((x, i) =>
+  const notice = p.src === 'ai' ? '<p class="hint" style="margin:0 0 10px"><span class="badge-est">AI 추정</span> AI가 새로 쓴 요약이에요. 책 원문이 아니니 내용이 다를 수 있어요.</p>' : '';
+  $('passage').innerHTML = notice + p.panels.map((x, i) =>
     '<div class="panel" data-i="' + i + '"><div class="no">' + (x.n || i + 1) + '</div><div class="txt"></div></div>').join('');
   p.panels.forEach((x, i) => {
     const el = $('passage').querySelector('.panel[data-i="' + i + '"] .txt');
@@ -814,7 +857,7 @@ function renderPageWords(p) {
   $('wordCount').textContent = p.words.length + '개';
   $('vocabGrid').innerHTML = p.words.length
     ? p.words.map((w, i) =>
-      '<div class="wcard" data-i="' + i + '"><div><div class="word">' + esc(w.w) + '</div>' +
+      '<div class="wcard" data-i="' + i + '"><div><div class="word">' + esc(w.w) + (w.est ? ' <span class="badge-est">AI</span>' : '') + '</div>' +
       '<div class="ipa">' + esc(w.ipa || '') + '</div><div class="ko">' + esc(w.ko || '') + '</div></div>' +
       '<button class="btn round soft" data-say="' + i + '" aria-label="발음">🔊</button></div>').join('')
     : '<p class="hint">이 페이지에는 단어가 없어요.</p>';
@@ -848,7 +891,7 @@ function buildQuiz(mode, p) {
   if (mode === 'read') {
     return p.questions.map((q, i) => ({
       id: 'r:' + p.id + ':' + i, kind: '내용', q: q.q, ko: q.ko, a: q.a,
-      o: shuf(q.o.slice()), ex: q.ex, speak: ''
+      o: shuf(q.o.slice()), ex: q.ex, speak: '', est: !!q.est
     })).filter(q => q.a && q.o.length >= 2);
   }
   const words = p.words.filter(w => w.w && w.ko);
@@ -869,9 +912,8 @@ function renderQuiz(p) {
   $('qTabWord').className = qMode === 'word' ? 'on' : '';
   $('qTabRead').className = qMode === 'read' ? 'on' : '';
   qData = buildQuiz(qMode, p);
-  const dirNow = $('qzDir').value;
   qData.forEach(q => {
-    const k = p.id + '|' + qMode + '|' + dirNow + '|' + q.id;
+    const k = p.id + '|' + qMode + '|' + q.id;
     if (qOrder.has(k)) q.o = qOrder.get(k).slice();
     else qOrder.set(k, q.o.slice());
   });
@@ -897,7 +939,7 @@ function renderQuiz(p) {
     const fb = !answered ? '' : (picked === q.a)
       ? '<p class="fb ok">🎉 정답! ' + esc(q.ex) + '</p>'
       : '<p class="fb bad">정답은 <b>' + esc(q.a) + '</b> 이에요. ' + esc(q.ex) + '</p>';
-    return '<div class="qcard"><div class="qhead"><span class="qlabel">' + (qMode === 'word' ? 'Vocabulary' : 'Reading') + ' Q' + (i + 1) + '</span>' +
+    return '<div class="qcard"><div class="qhead"><span class="qlabel">' + (qMode === 'word' ? 'Vocabulary' : 'Reading') + ' Q' + (i + 1) + '</span>' + (q.est ? ' <span class="badge-est">AI 추정</span>' : '') +
       '<span class="hint" style="margin:0">' + (qMode === 'word' ? '알맞은 답을 고르세요' : '지문을 보고 고르세요') + '</span></div>' +
       '<p class="qtext">' + esc(q.q) + (q.speak ? ' <button class="btn tiny soft" data-say="' + esc(q.speak) + '">🔊</button>' : '') + '</p>' +
       '<div class="opts">' + opts + '</div>' + fb + '</div>';
@@ -1054,24 +1096,8 @@ $('recordBtn').onclick = () => {
 };
 
 /* ═══════════ 부모 모드 ═══════════ */
-let gateAns = 0;
-function openGate() {
-  const a = 3 + Math.floor(Math.random() * 7), b = 3 + Math.floor(Math.random() * 7);
-  gateAns = a * b;
-  $('gateQ').textContent = a + ' × ' + b + ' = ?';
-  $('gateIn').value = '';
-  $('gate').classList.remove('hidden');
-  setTimeout(() => $('gateIn').focus(), 60);
-}
-const closeGate = () => $('gate').classList.add('hidden');
-$('parentBtn').onclick = openGate;
-$('gateCancel').onclick = closeGate;
-$('gateIn').onkeydown = e => { if (e.key === 'Enter') $('gateOk').click(); };
-$('gateOk').onclick = () => {
-  if (String(parseInt($('gateIn').value, 10)) === String(gateAns)) { closeGate(); openParent(); }
-  else { toast('정답이 아니에요. 다시 계산해 보세요.'); $('gateIn').value = ''; $('gateIn').focus(); }
-};
-$('gate').onclick = e => { if (e.target === $('gate')) closeGate(); };
+$('parentBtn').onclick = openParent;
+
 
 function openParent() {
   stopAll();
@@ -1096,6 +1122,7 @@ function showPP(id) {
   document.querySelectorAll('#pnav button').forEach(b => b.classList.toggle('on', b.dataset.p === id));
   if (id === 'review') renderDrafts();
   if (id === 'pages') renderPages();
+  if (id === 'gen') { $('gAr').value = $('gAr').value || S.ar; renderSets(); }
   window.scrollTo({ top: 0 });
 }
 $('pnav').onclick = e => {
@@ -1164,7 +1191,7 @@ function renderPages() {
   $('pagesList').innerHTML = c.pages.length
     ? c.pages.map((p, i) =>
       '<div class="prow"><span style="min-width:0"><b>p.' + p.n + '</b> <span class="hint" style="margin:0">지문 ' + p.panels.length + ' · 단어 ' + p.words.length + ' · 문제 ' + p.questions.length + '</span>' +
-      (p.done ? ' <span class="pill master">학습함</span>' : '') + '</span>' +
+      (p.src === 'ai' ? ' <span class="pill est">AI 추정</span>' : '') + (p.done ? ' <span class="pill master">학습함</span>' : '') + '</span>' +
       '<span class="row" style="gap:6px;flex:none"><button class="btn tiny soft" data-open="' + i + '">열기</button>' +
       '<button class="btn tiny danger" data-delpage="' + i + '">삭제</button></span></div>').join('')
     : '<p class="hint">아직 승인된 페이지가 없어요. 사진을 분석하고 승인하면 여기에 쌓여요.</p>';
@@ -1409,9 +1436,10 @@ function openEditor(i) {
   editingIndex = i;
   editing = JSON.parse(JSON.stringify(drafts[i]));
   showPP('editor');
-  $('edThumb').src = editing.img;
-  $('edThumb').classList.remove('hidden');
-  $('edTarget').textContent = book().title + ' · ' + chapter().title;
+  if (editing.img) { $('edThumb').src = editing.img; $('edThumb').classList.remove('hidden'); }
+  else { $('edThumb').removeAttribute('src'); $('edThumb').classList.add('hidden'); }
+  $('edTarget').innerHTML = (editing.src === 'ai' ? '<span class="badge-est">AI 추정</span> ' : '') +
+    esc(editing.src === 'ai' ? (editing.bookTitle + (editing.chTitle ? ' · ' + editing.chTitle : '')) : (book().title + ' · ' + chapter().title));
   renderEditor();
 }
 $('edBack').onclick = () => { editing = null; showPP('review'); };
@@ -1424,7 +1452,7 @@ function renderEditor() {
     '<button class="btn tiny danger" data-delpanel="' + i + '">✕</button></div>').join('');
 
   $('edWords').innerHTML = d.words.map((w, i) =>
-    '<div class="rev-word" data-i="' + i + '">' +
+    '<div class="rev-word" data-i="' + i + '">' + (w.est ? '<span class="badge-est">AI</span>' : '') +
     '<input data-k="w" value="' + esc(w.w) + '" placeholder="word" aria-label="단어">' +
     '<input data-k="ipa" value="' + esc(w.ipa) + '" placeholder="/ipa/" aria-label="발음기호">' +
     '<input data-k="ko" value="' + esc(w.ko) + '" placeholder="뜻" aria-label="뜻">' +
@@ -1435,6 +1463,7 @@ function renderEditor() {
     const opts = (q.o && q.o.length ? q.o : ['', '', '']).slice(0, 3);
     while (opts.length < 3) opts.push('');
     return '<div class="rev-q" data-i="' + i + '">' +
+      (q.est ? '<span class="badge-est">AI 추정</span> ' : '') +
       '<label class="fld">문제 (English)</label><input data-k="q" value="' + esc(q.q) + '">' +
       '<label class="fld" style="margin-top:8px">한국어 번역</label><input data-k="ko" value="' + esc(q.ko) + '">' +
       '<label class="fld" style="margin-top:8px">보기 3개 · 정답에 표시</label>' +
@@ -1491,17 +1520,26 @@ $('edDrop').onclick = () => {
 $('edApprove').onclick = () => {
   const d = editing;
   const panels = d.panels.filter(p => p.text.trim());
-  const words = d.words.filter(w => w.w.trim() && w.ko.trim()).map(w => ({ w: w.w.trim(), ipa: w.ipa.trim(), ko: w.ko.trim() }));
+  const words = d.words.filter(w => w.w.trim() && w.ko.trim()).map(w => ({ w: w.w.trim(), ipa: w.ipa.trim(), ko: w.ko.trim(), est: !!w.est }));
   const questions = d.questions.map(q => {
     const o = (q.o || []).map(x => (x || '').trim()).filter(Boolean);
     let a = (q.a || '').trim();
     if (!o.length || !q.q.trim()) return null;
     if (!o.includes(a)) a = o[0];
-    return { q: q.q.trim(), ko: q.ko.trim(), a, o: o.slice(0, 3), ex: q.ex.trim() };
+    return { q: q.q.trim(), ko: q.ko.trim(), a, o: o.slice(0, 3), ex: q.ex.trim(), est: !!q.est };
   }).filter(Boolean);
-  if (!panels.length) return toast('지문이 비어 있어요. 한 줄이라도 채워주세요.');
-  const c = chapter(), b = book();
-  const pg = { id: uid('p'), n: c.pages.length + 1, date: ymd(new Date()), done: false, panels, words, questions };
+  if (!panels.length) return toast('요약문이 비어 있어요. 한 줄이라도 채워주세요.');
+  let b, c;
+  if (d.src === 'ai') {
+    b = S.books.find(x => norm(x.title) === norm(d.bookTitle));
+    if (!b) { b = { id: uid('b'), title: d.bookTitle || 'AI 세트', ar: d.ar || S.ar, chapters: [] }; S.books.push(b); }
+    if (!Array.isArray(b.chapters)) b.chapters = [];
+    c = b.chapters.find(x => norm(x.title) === norm(d.chTitle));
+    if (!c) { c = { id: uid('c'), title: d.chTitle || 'Chapter', pages: [] }; b.chapters.push(c); }
+  } else {
+    b = book(); c = chapter();
+  }
+  const pg = { id: uid('p'), n: c.pages.length + 1, date: ymd(new Date()), done: false, src: d.src === 'ai' ? 'ai' : '', panels, words, questions };
   c.pages.push(pg);
   words.forEach(w => {
     const bk = S.vocab[b.id] || (S.vocab[b.id] = {});
@@ -1511,11 +1549,192 @@ $('edApprove').onclick = () => {
     if (!z.ko && w.ko) z.ko = w.ko;
     if (!z.ipa && w.ipa) z.ipa = w.ipa;
   });
-  S.active.page = c.pages.length - 1;
+  if (d.src === 'ai') {
+    S.active = { book: b.id, chapter: c.id, page: c.pages.length - 1 };
+    const st = S.sets.find(x => x.key === d.setKey);
+    if (st) st.used = ymd(new Date());
+  } else {
+    S.active.page = c.pages.length - 1;
+  }
   drafts.splice(editingIndex, 1); editing = null;
-  save(); renderDrafts(); renderPages(); renderBooks(); renderToday(); refreshBadges();
-  showPP('review');
+  save(); normalizeAfterDelete();
+  renderDrafts(); renderPages(); renderBooks(); renderSets(); renderToday(); refreshBadges();
+  showPP(d.src === 'ai' ? 'gen' : 'review');
   toast('p.' + pg.n + ' 승인 완료 · 단어 ' + words.length + '개');
+};
+
+/* ── 책 정보만으로 생성 ── */
+const gState = { confirm: null, result: null, setKey: '' };
+const CONF_LABEL = { high: '높음', medium: '보통', low: '낮음' };
+const parseJson = txt => { const a = txt.indexOf('{'), b = txt.lastIndexOf('}'); return JSON.parse(txt.slice(a, b + 1)); };
+function gKey() { return [norm($('gTitle').value), $('gChNum').value.trim(), norm($('gChTitle').value)].join('|'); }
+const G_CONFIRM_PROMPT = (title, ar) => `You help a Korean parent build English study material for a child reading at AR level ${ar}.
+The parent typed this book title: "${title}".
+Identify the book FROM MEMORY. Never invent facts. Reply with ONLY valid JSON:
+{"known":true,"conf":"high","title":"","author":"","series":"","level":"","premise":"","chapters":[],"warn":""}
+Rules:
+- conf: "high" only if you are certain about this exact book, "medium" if mostly sure, "low" if you are guessing.
+- premise: 1-2 simple sentences about what the book is about.
+- chapters: chapter titles ONLY if you are confident, max 15. Otherwise [].
+- level: AR level and Lexile if you know them, else "".
+- warn: one short Korean sentence for the parent when you are unsure or do not know the book.
+- Output JSON only, no markdown.`;
+const G_MAKE_PROMPT = (title, ch, ar) => `Prepare study material for a Korean elementary reader at AR level ${ar}. No book text is available: work from memory only.
+Book: "${title}"${ch ? ' / chapter ' + ch : ''}
+Reply with ONLY valid JSON:
+{"summary":"","words":[{"w":"","ipa":"/.../","ko":"","d":""}],"questions":[{"q":"","ko":"","a":"","o":["","",""],"ex":""}]}
+Rules:
+- summary: 3-4 short simple sentences in YOUR OWN WORDS at AR ${ar} level describing what happens in this chapter. NEVER copy or closely paraphrase sentences from the book. If you are unsure of the plot, describe only the setting and characters you are sure about.
+- words: exactly 10 useful vocabulary words for an AR ${ar} reader. Do NOT claim they are the exact words of that chapter. Choose general, level-appropriate words related to this book's topic. EXCLUDE character names, place names and titles.
+- questions: exactly 3 questions. ONLY causality (why), character feeling, or inference. NEVER ask about colours, numbers, the exact order of small events, or quoted lines. q is simple English, ko is the Korean translation of q, o has 3 short English options, a is exactly one of o, ex is one short English sentence of evidence. If you are NOT sure of the answer from memory, set "a" to "확인 필요" and "ex" to "".
+- Output JSON only.`;
+async function callAIText(prompt) {
+  const p = S.ai.provider, key = getKey(p), model = getModel();
+  if (!key) throw new Error(PROVIDERS[p].label + ' API 키가 없어요. ⚙ AI 설정에서 저장해 주세요.');
+  if (p === 'gemini') {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + key, 'x-goog-api-key': key },
+      body: JSON.stringify({ model, temperature: 0.3, max_tokens: 3000, messages: [{ role: 'user', content: prompt }] })
+    });
+    if (!r.ok) { const e = new Error((await r.text()).slice(0, 300)); e.status = r.status; throw e; }
+    const j = await r.json();
+    return (((j.choices || [])[0] || {}).message || {}).content || '';
+  }
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model, max_tokens: 3000, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!r.ok) { const e = new Error((await r.text()).slice(0, 300)); e.status = r.status; throw e; }
+  const j = await r.json();
+  return (j.content || []).filter(x => x.type === 'text').map(x => x.text).join('');
+}
+function cleanGen(o) {
+  const t = v => typeof v === 'string' ? v.trim() : '';
+  const words = (Array.isArray(o.words) ? o.words : []).map(w => ({ w: t(w.w), ipa: t(w.ipa), ko: t(w.ko), d: t(w.d) }))
+    .filter(w => /^[A-Za-z][A-Za-z' -]*$/.test(w.w)).slice(0, 12);
+  const questions = (Array.isArray(o.questions) ? o.questions : []).map(q => {
+    const a = t(q.a), opts = [...new Set((Array.isArray(q.o) ? q.o : []).map(t).filter(Boolean))].slice(0, 4);
+    if (!t(q.q) || !a) return null;
+    if (!opts.includes(a)) opts.unshift(a);
+    return { q: t(q.q), ko: t(q.ko), a, o: opts.slice(0, 3), ex: t(q.ex), est: true };
+  }).filter(q => q && q.o.length >= 2).slice(0, 5);
+  return { summary: t(o.summary), words, questions };
+}
+function renderGConfirm(d) {
+  const conf = (d.conf || 'low').toLowerCase();
+  $('gConfirmCard').classList.remove('hidden');
+  $('gConfirm').innerHTML =
+    '<div class="box"><b>' + esc(d.title || $('gTitle').value) + '</b>' + (d.author ? ' · ' + esc(d.author) : '') +
+    (d.series ? ' <span class="hint" style="margin:0">' + esc(d.series) + '</span>' : '') + '</div>' +
+    '<p style="margin:8px 0 0"><span class="badge-est">AI 추정</span> 신뢰도 <b>' + (CONF_LABEL[conf] || '낮음') + '</b></p>' +
+    (d.premise ? '<p style="margin:8px 0 0">' + esc(d.premise) + '</p>' : '') +
+    (d.level ? '<p class="hint" style="margin:8px 0 0">레벨: ' + esc(d.level) + '</p>' : '') +
+    (d.chapters && d.chapters.length ? '<p class="hint" style="margin:8px 0 0">아는 챕터: ' + d.chapters.slice(0, 15).map(esc).join(' · ') + '</p>' : '') +
+    (d.warn ? '<p class="status">&#9888;&#65039; ' + esc(d.warn) + '</p>' : '');
+}
+function renderGResult(r) {
+  $('gResultCard').classList.remove('hidden');
+  $('gResult').innerHTML =
+    '<p style="margin:0 0 10px"><span class="badge-est">AI 추정</span> 부모님 확인이 필요해요</p>' +
+    (r.summary ? '<div class="box"><b>AI가 새로 쓴 요약문</b> <span class="hint" style="margin:0">(책 원문 아님)</span><br>' + esc(r.summary) + '</div>' : '') +
+    '<div class="box" style="margin-top:8px"><b>단어 ' + r.words.length + '개</b><br>' +
+    (r.words.map(w => esc(w.w) + ' <span class="hint" style="margin:0">' + esc(w.ko || '') + '</span>').join('<br>') || '<span class="hint" style="margin:0">없음</span>') + '</div>' +
+    '<div class="box" style="margin-top:8px"><b>내용 문제 ' + r.questions.length + '개</b><br>' +
+    (r.questions.map(q => esc(q.q) + '<br><span class="hint" style="margin:0">정답: ' + esc(q.a) + (q.a === '확인 필요' ? ' (AI가 확신하지 못함)' : '') + '</span>').join('<br><br>') || '<span class="hint" style="margin:0">없음</span>') + '</div>';
+}
+function renderSets() {
+  $('gSetCount').textContent = S.sets.length ? S.sets.length + '세트' : '';
+  $('gSets').innerHTML = S.sets.length ? S.sets.slice().reverse().map(x =>
+    '<div class="prow"><span style="min-width:0"><b>' + esc(x.title) + '</b>' +
+    (x.chTitle || x.chNum ? ' <span class="hint" style="margin:0">' + esc((x.chNum ? 'Ch.' + x.chNum + ' ' : '') + (x.chTitle || '')) + '</span>' : '') +
+    '<br><span class="hint" style="margin:0">단어 ' + x.words.length + ' · 문제 ' + x.questions.length + (x.used ? ' · 사용함 ' + x.used : '') + '</span></span>' +
+    '<span class="row" style="gap:6px;flex:none"><button class="btn tiny soft" data-loadset="' + esc(x.key) + '">불러오기</button>' +
+    '<button class="btn tiny danger" data-delset="' + esc(x.key) + '">&#10005;</button></span></div>').join('')
+    : '<p class="hint">저장된 세트가 없어요. 책 제목을 넣고 ① 책 확인을 눌러보세요.</p>';
+}
+async function generateG() {
+  const title = $('gTitle').value.trim();
+  if (!title) return toast('책 제목을 입력해 주세요.');
+  if (!getKey()) { $('gStatus').textContent = '먼저 ⚙ AI 설정에서 키를 저장해 주세요.'; showPP('ai'); return; }
+  const chNum = $('gChNum').value.trim(), chTitle = $('gChTitle').value.trim();
+  const ch = chNum ? (chNum + (chTitle ? ' "' + chTitle + '"' : '')) : (chTitle || '');
+  const ar = $('gAr').value.trim() || S.ar;
+  $('gStatus').textContent = '🤖 단어와 문제를 만드는 중… (20~40초)';
+  try {
+    const r = cleanGen(parseJson(await callAIText(G_MAKE_PROMPT(title, ch, ar))));
+    if (!r.words.length) throw new Error('단어를 만들지 못했어요. 책 제목을 더 정확히 적어 주세요.');
+    gState.result = r; gState.setKey = gKey();
+    const rec = { key: gState.setKey, title, chNum, chTitle, ar, conf: (gState.confirm || {}).conf || '', premise: (gState.confirm || {}).premise || '', summary: r.summary, words: r.words, questions: r.questions, at: ymd(new Date()), used: '' };
+    const i = S.sets.findIndex(x => x.key === rec.key);
+    if (i >= 0) S.sets[i] = rec; else S.sets.push(rec);
+    save(); renderSets(); renderGResult(r);
+    $('gStatus').textContent = '✅ 생성 완료 · 단어 ' + r.words.length + '개 · 문제 ' + r.questions.length + '개 · 저장된 세트에도 넣었어요';
+  } catch (e) {
+    $('gStatus').textContent = '❌ ' + friendly(e);
+  }
+}
+function gMakeDraft(r) {
+  const title = $('gTitle').value.trim();
+  const chNum = $('gChNum').value.trim(), chTitle = $('gChTitle').value.trim();
+  const label = (chNum ? 'Ch.' + chNum + ' ' : '') + chTitle;
+  const draft = {
+    id: uid('d'), img: '', name: 'AI · ' + title + (label ? ' · ' + label : ''), src: 'ai', setKey: gState.setKey || gKey(),
+    ar: $('gAr').value.trim() || S.ar, bookTitle: title, chTitle: label || 'AI 세트',
+    panels: [{ n: 1, text: r.summary || '' }],
+    words: r.words.map(w => ({ w: w.w, ipa: w.ipa || '', ko: w.ko || '', est: true })),
+    questions: r.questions.map(q => ({ q: q.q, ko: q.ko || '', a: q.a, o: (q.o || []).slice(0, 3), ex: q.ex || '', est: true }))
+  };
+  drafts.push(draft); renderDrafts();
+  openEditor(drafts.length - 1);
+}
+$('gStep1').onclick = async () => {
+  const title = $('gTitle').value.trim();
+  if (!title) return toast('책 제목을 입력해 주세요.');
+  const key = gKey();
+  const saved = S.sets.find(x => x.key === key);
+  if (saved) {
+    gState.setKey = key; gState.confirm = { conf: saved.conf, premise: saved.premise };
+    gState.result = { summary: saved.summary, words: saved.words, questions: saved.questions };
+    $('gConfirmCard').classList.add('hidden'); renderGResult(gState.result);
+    $('gStatus').textContent = '🗃️ 저장된 세트를 불러왔어요 (API 호출 없음)';
+    return;
+  }
+  if (!getKey()) { $('gStatus').textContent = '먼저 ⚙ AI 설정에서 ' + PROVIDERS[S.ai.provider].label + ' 키를 저장해 주세요.'; showPP('ai'); return; }
+  $('gStatus').textContent = '🤖 책을 확인하는 중… (10~20초)';
+  try {
+    const j = parseJson(await callAIText(G_CONFIRM_PROMPT(title, $('gAr').value.trim() || S.ar)));
+    gState.confirm = j; gState.key = key;
+    renderGConfirm(j);
+    $('gStep2').disabled = false;
+    const low = j.known === false || (j.conf || '').toLowerCase() === 'low';
+    $('gStatus').textContent = low
+      ? '⚠️ AI가 이 책을 잘 모릅니다. 그래도 만들 수 있지만 결과를 꼭 확인하세요.'
+      : '✅ 확인 단계 완료 · 내용이 맞으면 ② 또는 아래 버튼을 누르세요';
+  } catch (e) { $('gStatus').textContent = '❌ ' + friendly(e); }
+};
+$('gStep2').onclick = generateG;
+$('gYes').onclick = generateG;
+$('gNo').onclick = () => { $('gConfirmCard').classList.add('hidden'); $('gTitle').focus(); };
+$('gSave').onclick = () => { if (!gState.result) return toast('먼저 만들어 주세요.'); gMakeDraft(gState.result); };
+$('gDrop').onclick = () => { gState.result = null; $('gResultCard').classList.add('hidden'); $('gStatus').textContent = '결과를 버렸어요. 세트는 저장돼 있어요.'; };
+$('gSets').onclick = e => {
+  const l = e.target.closest('[data-loadset]');
+  if (l) {
+    const x = S.sets.find(y => y.key === l.dataset.loadset); if (!x) return;
+    $('gTitle').value = x.title; $('gChNum').value = x.chNum || ''; $('gChTitle').value = x.chTitle || ''; $('gAr').value = x.ar || S.ar;
+    gState.setKey = x.key; gState.confirm = { conf: x.conf, premise: x.premise };
+    gState.result = { summary: x.summary, words: x.words, questions: x.questions };
+    $('gConfirmCard').classList.add('hidden'); renderGResult(gState.result);
+    $('gStatus').textContent = '🗃️ 저장된 세트를 불러왔어요 (API 호출 없음)';
+    window.scrollTo({ top: 0 });
+    return;
+  }
+  const d = e.target.closest('[data-delset]');
+  if (!d) return;
+  S.sets = S.sets.filter(y => y.key !== d.dataset.delset);
+  save(); renderSets(); toast('세트를 삭제했어요');
 };
 
 /* ── 백업 ── */
