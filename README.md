@@ -1,4 +1,4 @@
-[reading-buddy (7).html](https://github.com/user-attachments/files/33749676/reading-buddy.7.html)
+[reading-buddy (8).html](https://github.com/user-attachments/files/33750270/reading-buddy.8.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -224,6 +224,7 @@
       <h1 class="app-title">📖 동윤이의 리딩 버디</h1>
       <p class="sub">노블 한 권을 읽고, 어휘를 쌓고, 내용을 확인해요</p>
     </div>
+    <button id="quickImpBtn" class="btn tiny ghost" title="다른 기기에서 내보낸 백업 불러오기">⬆️ 불러오기</button>
     <button id="parentBtn" class="btn tiny ghost">⚙ 부모</button>
   </header>
 
@@ -508,9 +509,10 @@
     <div id="pp-backup" class="pp hidden">
       <div class="card">
         <h3 class="card-title" style="margin-bottom:8px"><span>💾</span> 데이터 백업</h3>
-        <p class="hint">책 · 페이지 · 어휘 · 학습 기록이 모두 들어 있어요. 기기를 바꾸거나 브라우저 기록을 지울 때 사용하세요.</p>
+        <p class="hint">책 · 페이지 · 어휘 · 학습 기록이 모두 들어 있어요. 기기를 바꾸거나 브라우저 기록을 지울 때 사용하세요.<br><b>PC ↔ 폰 이동</b>: PC에서 <b>📤 공유하기</b>로 카톡·메일 전송 → 폰에서 <b>⬆️ 불러오기 → 합치기</b>를 누르면 돼요.</p>
         <div class="row wrap" style="margin-top:12px">
           <button id="expBtn" class="btn soft" style="flex:1">⬇️ 내보내기</button>
+          <button id="shareBtn" class="btn primary" style="flex:1">📤 공유하기</button>
           <button id="impBtn" class="btn ghost" style="flex:1">⬆️ 불러오기</button>
           <input id="impFile" type="file" accept=".json,application/json" class="hidden">
         </div>
@@ -1739,15 +1741,38 @@ $('gSets').onclick = e => {
 
 /* ── 백업 ── */
 function renderBackupHint() { $('impSt').textContent = '책 ' + S.books.length + '권 · 학습 ' + S.sessions.length + '회 · 오답 ' + S.wrong.length + '개'; }
-$('expBtn').onclick = () => {
+function backupFile() {
   const d = new Date();
   const name = 'reading-buddy-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '.json';
-  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  return new File([JSON.stringify(S, null, 2)], name, { type: 'application/json' });
+}
+function downloadBackup(f) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name;
+  a.href = URL.createObjectURL(f); a.download = f.name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  $('impSt').textContent = '백업 파일을 내려받았어요.';
+}
+$('expBtn').onclick = () => { downloadBackup(backupFile()); $('impSt').textContent = '백업 파일을 내려받았어요. 다른 기기로 보내주세요.'; };
+$('shareBtn').onclick = async () => {
+  const f = backupFile();
+  $('impSt').textContent = '공유 창을 여는 중…';
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [f] })) {
+      await navigator.share({ files: [f], title: '리딩 버디 백업', text: '리딩 버디 백업 파일이에요. 폰에서 ⬆️ 불러오기 → 합치기를 눌러주세요.' });
+      $('impSt').textContent = '✅ 공유했어요. 다른 기기에서 ⬆️ 불러오기 → 합치기를 누르세요.';
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') { $('impSt').textContent = '공유를 취소했어요.'; return; }
+    $('impSt').textContent = '공유를 쓸 수 없어 파일로 내려받았어요.';
+    downloadBackup(f); return;
+  }
+  downloadBackup(f);
+  $('impSt').textContent = '이 브라우저는 공유 창을 지원하지 않아 파일로 내려받았어요. 카톡·메일로 보내주세요.';
+};
+$('quickImpBtn').onclick = () => {
+  toast('다른 기기에서 내보낸 백업 파일을 골라주세요.');
+  $('impFile').click();
 };
 let pendingImport = null;
 $('impBtn').onclick = () => $('impFile').click();
