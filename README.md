@@ -1,4 +1,4 @@
-[reading-buddy (10).html](https://github.com/user-attachments/files/33751141/reading-buddy.10.html)
+[reading-buddy.html](https://github.com/user-attachments/files/33896026/reading-buddy.html)
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -214,6 +214,14 @@
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .badge-est{display:inline-block;font-size:10px;font-weight:800;color:#8a5200;background:#fff3cd;border-radius:999px;padding:1px 6px;vertical-align:middle;margin-left:4px}
 .pill.est{background:#fff3cd;color:#8a5200}
+.qnav{display:flex;align-items:center;gap:8px;margin-top:12px}
+.qarrow{flex:none;width:48px;height:48px;border-radius:14px;border:1px solid #e2e2ee;background:#fff;font-size:22px;font-weight:900;color:#4338ca;cursor:pointer}
+.qarrow:disabled{opacity:.35;cursor:default}
+.qchips{display:flex;gap:6px;overflow-x:auto;flex:1;padding:2px}
+.qchip{flex:none;min-width:44px;height:44px;border-radius:12px;border:1px solid #e2e2ee;background:#fff;font-weight:800;font-size:14px;color:#333;cursor:pointer}
+.qchip.on{outline:3px solid #4338ca;outline-offset:-1px;color:#312e81}
+.qchip.good{background:#dcfce7;border-color:#86efac;color:#166534}
+.qchip.bad{background:#fee2e2;border-color:#fca5a5;color:#991b1b}
 </style>
 </head>
 <body>
@@ -763,10 +771,10 @@ function goTab(t) {
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => goTab(b.dataset.tab));
 
 /* ═══════════ 오늘 ═══════════ */
-let qMode = 'word', qData = [], qPick = {}, qOrder = new Map(), lastPageId = null;
+let qMode = 'word', qData = [], qPick = {}, qOrder = new Map(), lastPageId = null, quizIdx = 0;
 function renderToday() {
   const b = book(), c = chapter(), p = page();
-  if ((p ? p.id : null) !== lastPageId) { qPick = {}; lastPageId = p ? p.id : null; }
+  if ((p ? p.id : null) !== lastPageId) { qPick = {}; quizIdx = 0; lastPageId = p ? p.id : null; }
   $('heroTitle').textContent = b.title;
   $('heroLevel').textContent = 'AR ' + (b.ar || S.ar);
   $('heroSub').textContent = c.title + (p ? ' · p.' + p.n : ' · 페이지 없음');
@@ -906,7 +914,15 @@ function buildQuiz(mode, p) {
     })).filter(q => q.a && q.o.length >= 2);
   }
   const words = p.words.filter(w => w.w && w.ko);
-  const all = Object.values(bank()).filter(x => x.ko);
+  let all = Object.values(bank()).filter(x => x.ko);
+  if (all.length < 4) {
+    Object.keys(S.vocab || {}).forEach(bid => {
+      if (bid === book().id) return;
+      all = all.concat(Object.values(S.vocab[bid]).filter(x => x.ko));
+    });
+    const seen = new Set();
+    all = all.filter(x => { const k = norm(x.w); if (seen.has(k)) return false; seen.add(k); return true; });
+  }
   return words.map((x, i) => {
     const toWord = i % 2 === 0;
     const others = shuf(all.filter(y => norm(y.w) !== norm(x.w))).slice(0, 2);
@@ -935,49 +951,75 @@ function renderQuiz(p) {
     return;
   }
   qData.forEach(q => { if (qPick[q.id] === undefined) qPick[q.id] = null; });
+  if (quizIdx >= qData.length || quizIdx < 0) quizIdx = 0;
   let done = 0, ok = 0;
-  const cards = qData.map((q, i) => {
-    const picked = qPick[q.id], answered = picked !== null && picked !== undefined;
-    if (answered) { done++; if (picked === q.a) ok++; }
-    const opts = q.o.map((t, j) => {
-      let cls = 'opt';
-      if (answered) {
-        if (t === q.a) cls += ' good';
-        else if (t === picked) cls += ' bad';
-      }
-      return '<button class="' + cls + '" data-i="' + i + '" data-j="' + j + '"' + (answered ? ' disabled' : '') + '>' + 'ABC'[j] + ') ' + esc(t) + '</button>';
-    }).join('');
-    const fb = !answered ? '' : (picked === q.a)
-      ? '<p class="fb ok">🎉 정답! ' + esc(q.ex) + '</p>'
-      : '<p class="fb bad">정답은 <b>' + esc(q.a) + '</b> 이에요. ' + esc(q.ex) + '</p>';
-    return '<div class="qcard"><div class="qhead"><span class="qlabel">' + (qMode === 'word' ? 'Vocabulary' : 'Reading') + ' Q' + (i + 1) + '</span>' + (q.est ? ' <span class="badge-est">AI 추정</span>' : '') +
-      '<span class="hint" style="margin:0">' + (qMode === 'word' ? '알맞은 답을 고르세요' : '지문을 보고 고르세요') + '</span></div>' +
-      '<p class="qtext">' + esc(q.q) + (q.speak ? ' <button class="btn tiny soft" data-say="' + esc(q.speak) + '">🔊</button>' : '') + '</p>' +
-      '<div class="opts">' + opts + '</div>' + fb + '</div>';
+  qData.forEach(q => { const v = qPick[q.id]; if (v !== null && v !== undefined) { done++; if (v === q.a) ok++; } });
+  const i = quizIdx, q = qData[i];
+  const picked = qPick[q.id], answered = picked !== null && picked !== undefined;
+  const opts = q.o.map((t, j) => {
+    let cls = 'opt';
+    if (answered) { if (t === q.a) cls += ' good'; else if (t === picked) cls += ' bad'; }
+    return '<button class="' + cls + '" data-i="' + i + '" data-j="' + j + '">' + 'ABC'[j] + ') ' + esc(t) + '</button>';
   }).join('');
+  const fb = !answered ? '' : (picked === q.a)
+    ? '<p class="fb ok">🎉 정답! ' + esc(q.ex) + '</p>'
+    : '<p class="fb bad">정답은 <b>' + esc(q.a) + '</b> 이에요. ' + esc(q.ex) + '</p>';
+  const card = '<div class="qcard"><div class="qhead"><span class="qlabel">' + (qMode === 'word' ? 'Vocabulary' : 'Reading') + ' Q' + (i + 1) + '</span>' + (q.est ? ' <span class="badge-est">AI 추정</span>' : '') +
+    '<span class="hint" style="margin:0">' + (qMode === 'word' ? '알맞은 답을 고르세요' : '지문을 보고 고르세요') + '</span></div>' +
+    '<p class="qtext">' + esc(q.q) + (q.speak ? ' <button class="btn tiny soft" data-say="' + esc(q.speak) + '">🔊</button>' : '') + '</p>' +
+    '<div class="opts">' + opts + '</div>' + fb +
+    (answered ? '<p class="hint" style="margin:8px 0 0">다른 답을 누르면 바꿀 수 있어요.</p>' : '') + '</div>';
+  const chips = qData.map((x, k) => {
+    const v = qPick[x.id];
+    const st = (v === null || v === undefined) ? '' : (v === x.a ? ' good' : ' bad');
+    return '<button class="qchip' + (k === i ? ' on' : '') + st + '" data-qjump="' + k + '" aria-label="문제 ' + (k + 1) + '">' + (k + 1) + '</button>';
+  }).join('');
+  const pager = '<div class="qnav">' +
+    '<button class="qarrow" data-qp="-1"' + (i === 0 ? ' disabled' : '') + ' aria-label="이전 문제">&#8249;</button>' +
+    '<div class="qchips">' + chips + '</div>' +
+    '<button class="qarrow" data-qp="1"' + (i === qData.length - 1 ? ' disabled' : '') + ' aria-label="다음 문제">&#8250;</button></div>';
   const label = done === qData.length
     ? ((ok === qData.length ? '🏆 모두 맞혔어요! ' : '결과 ') + ok + '/' + qData.length + ' 정답')
     : ('진행 ' + done + '/' + qData.length + ' · 정답 ' + ok);
-  $('quizBody').innerHTML = cards +
-    '<div class="row between" style="background:var(--indigo-soft);border-radius:14px;padding:12px"><b style="font-size:14px;color:#312e81">' + label +
+  $('quizBody').innerHTML = card + pager +
+    '<div class="row between" style="background:var(--indigo-soft);border-radius:14px;padding:12px;margin-top:10px"><b style="font-size:14px;color:#312e81">' + label +
     '</b><button id="qRetry" class="btn tiny ghost">🔄 다시 풀기</button></div>';
 }
-$('qTabWord').onclick = () => { qMode = 'word'; qPick = {}; qOrder.clear(); stopAll(); renderQuiz(page()); };
-$('qTabRead').onclick = () => { qMode = 'read'; qPick = {}; qOrder.clear(); stopAll(); renderQuiz(page()); };
+$('qTabWord').onclick = () => { qMode = 'word'; qPick = {}; qOrder.clear(); quizIdx = 0; stopAll(); renderQuiz(page()); };
+$('qTabRead').onclick = () => { qMode = 'read'; qPick = {}; qOrder.clear(); quizIdx = 0; stopAll(); renderQuiz(page()); };
 $('quizBody').onclick = e => {
   const sp = e.target.closest('[data-say]');
   if (sp) return speak(sp.dataset.say);
-  if (e.target.closest('#qRetry')) { qPick = {}; qOrder.clear(); renderQuiz(page()); return; }
+  if (e.target.closest('#qRetry')) { qPick = {}; qOrder.clear(); quizIdx = 0; renderQuiz(page()); return; }
+  const nav = e.target.closest('[data-qp]');
+  if (nav) { quizIdx = Math.max(0, Math.min(qData.length - 1, quizIdx + (+nav.dataset.qp))); renderQuiz(page()); return; }
+  const jm = e.target.closest('[data-qjump]');
+  if (jm) { quizIdx = +jm.dataset.qjump; renderQuiz(page()); return; }
   const b = e.target.closest('.opt');
   if (!b) return;
   const i = +b.dataset.i, j = +b.dataset.j, q = qData[i];
-  if (qPick[q.id] !== null && qPick[q.id] !== undefined) return;
-  qPick[q.id] = q.o[j];
-  const ok = q.o[j] === q.a;
-  recordAnswer(q, ok, q.o[j]);
-  refreshWordStats(q, ok);
+  const newPick = q.o[j], newOk = newPick === q.a, prevPick = qPick[q.id];
+  if (prevPick === newPick) return;
+  if (prevPick !== null && prevPick !== undefined) undoStat(q, prevPick === q.a);
+  qPick[q.id] = newPick;
+  recordAnswer(q, newOk, newPick);
+  refreshWordStats(q, newOk);
   renderQuiz(page());
 };
+function undoStat(q, wasOk) {
+  if (q.kind === '단어') {
+    const b = bank();
+    const key = Object.keys(b).find(k => norm(b[k].w) === norm(q.a) || norm(b[k].w) === norm(q.ex.split('=')[0]));
+    if (key) {
+      const z = b[key];
+      if (wasOk) { z.ok = Math.max(0, (z.ok || 0) - 1); z.streak = Math.max(0, (z.streak || 0) - 1); }
+      else { z.bad = Math.max(0, (z.bad || 0) - 1); }
+    }
+  }
+  const i = S.wrong.findIndex(x => x.id === q.id);
+  if (i >= 0) { if ((S.wrong[i].n || 1) > 1) S.wrong[i].n--; else S.wrong.splice(i, 1); }
+  save();
+}
 function recordAnswer(q, ok, mine) {
   const today = ymd(new Date());
   const i = S.wrong.findIndex(x => x.id === q.id);
